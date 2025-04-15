@@ -13,6 +13,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 import httpx
 from fastapi import HTTPException
 
+
+
+load_dotenv()
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -21,14 +25,16 @@ class RAGPipeline:
         self.books_folder = books_folder
         self.collection_name = collection_name
         self.qdrant_url = os.getenv("DB_API_URL")
+        # print(f"Qdrant URL: {self.qdrant_url}")
         self.model = SentenceTransformer("thenlper/gte-base", device="cpu")
         self.qdrant_api_key, self.gemini_api_key = self.load_environment()
 
     def load_environment(self):
         try:
-            load_dotenv()
+            
             qdrant_api_key = os.getenv("DB_API")
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            gemini_api_key = os.getenv("API_KEY")
+            # print(gemini_api_key)
             if not qdrant_api_key:
                 raise ValueError("QDRANT_API_KEY not found in environment variables.")
             return qdrant_api_key, gemini_api_key
@@ -181,9 +187,10 @@ class RAGPipeline:
                             f"Query: {query}\n\n"
                             f"Using the information provided below, generate a clear, formal, and informative answer to the query.\n"
                             f"If the answer can be found in the documents, respond based only on that.\n"
+                            f"remember u have to answer by your side any how ... provide general answer also if nothing is found on the documents\n\n"
                             f"However, if the documents do **not** contain sufficient or relevant information to answer the query, "
                             f"mention that explicitly and proceed to generate a well-informed response as if it were a standard web search (like Google or Gemini would do), "
-                            f"offering a comprehensive and factual answer based on general knowledge.\n\n"
+                            # f"remember u have to answer by your side any how ... provide general answer also if nothing comman\n\n"
                             f"---\n"
                             f"Document Context:\n{context}\n"
                             f"---"
