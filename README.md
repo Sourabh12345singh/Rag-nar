@@ -108,9 +108,13 @@ Crafted by Sourabh, for those who seek knowledge like warriors seek glory.
 ---
 
 
+
 ## 📷 Screenshots / Demo
 
-> _Add demo links or screenshots here if available._
+![image](https://github.com/user-attachments/assets/141f5db9-fa23-4f8f-8619-60f861e82586)
+
+![image](https://github.com/user-attachments/assets/d33b467f-4679-402f-ab8e-658e39653310)
+
 
 ---
 
