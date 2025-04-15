@@ -13,17 +13,4 @@ dist
 dist-ssr
 *.local
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-ENV/
-*.env
-
-# Ignore gimini.py at root
-/gimini_test.py
 
