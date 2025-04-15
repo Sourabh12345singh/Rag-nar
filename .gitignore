@@ -24,4 +24,5 @@ venv/
 ENV/
 *.env
 
+./backend/giminiTest.py
 
