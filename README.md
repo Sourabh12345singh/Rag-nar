@@ -107,11 +107,6 @@ Crafted by Sourabh, for those who seek knowledge like warriors seek glory.
 
 ---
 
-## 📜 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
 
 ## 📷 Screenshots / Demo
 
