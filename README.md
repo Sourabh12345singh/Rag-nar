@@ -59,9 +59,9 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 
 4. **Add environment variables to `.env`:**
    ```
-   DB_API_URL=https://a52d8325-bdbe-4aa9-82d8-4d4c8dfe3722.us-west-1-0.aws.cloud.qdrant.io:6333
-   QDRANT_API_KEY=your_qdrant_api_key
-   GROQ_API_KEY=your_groq_api_key
+   DB_API_URL
+   QDRANT_API_KEY
+   GROQ_API_KEY
    ```
 
 5. **Run the backend server:**
