@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 import fitz
@@ -8,7 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
 from tqdm import tqdm
 import logging
-import google.generativeai as genai
+from groq import Groq
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import httpx
 from fastapi import HTTPException
@@ -21,28 +20,29 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class RAGPipeline:
-    def __init__(self, books_folder: str = "./books/", collection_name: str = "love_stories"):
+    def __init__(self, books_folder: str = "./books/", collection_name: str = "rag_collection"):  # Initialize pipeline with model and API keys
         self.books_folder = books_folder
         self.collection_name = collection_name
         self.qdrant_url = os.getenv("DB_API_URL")
-        # print(f"Qdrant URL: {self.qdrant_url}")
         self.model = SentenceTransformer("thenlper/gte-base", device="cpu")
-        self.qdrant_api_key, self.gemini_api_key = self.load_environment()
+        self.qdrant_api_key, self.groq_api_key = self.load_environment()
 
-    def load_environment(self):
+    # load environment variables
+    def load_environment(self):  # Load and validate API keys from .env
         try:
-            
-            qdrant_api_key = os.getenv("DB_API")
-            gemini_api_key = os.getenv("API_KEY")
-            # print(gemini_api_key)
+            qdrant_api_key = os.getenv("QDRANT_API_KEY")
+            groq_api_key = os.getenv("GROQ_API_KEY")
             if not qdrant_api_key:
                 raise ValueError("QDRANT_API_KEY not found in environment variables.")
-            return qdrant_api_key, gemini_api_key
+            if not groq_api_key:
+                raise ValueError("GROQ_API_KEY not found in environment variables.")
+            return qdrant_api_key, groq_api_key
         except Exception as e:
             logger.error(f"Failed to load environment variables: {e}")
             raise
 
-    def clear_collection(self):
+   # if any collection exists delete it for increased performance
+    def clear_collection(self):  # Delete Qdrant collection if exists
         try:
             client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key, timeout=60.0)
             if client.collection_exists(collection_name=self.collection_name):
@@ -53,8 +53,9 @@ class RAGPipeline:
         except Exception as e:
             logger.error(f"Failed to clear Qdrant collection: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to clear Qdrant collection: {str(e)}")    
-
-    def extract_text_from_pdfs(self, folder_path: str) -> list[dict]:
+ 
+# extract text from pdfs
+    def extract_text_from_pdfs(self, folder_path: str) -> list[dict]:  # Extract text from all PDFs in folder
         logger.info(f"Extracting text from PDFs in {folder_path}")
         text_data = []
         try:
@@ -78,8 +79,9 @@ class RAGPipeline:
         except Exception as e:
             logger.error(f"Error during PDF extraction: {e}")
             raise
-
-    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 150) -> list[str]:
+    
+    # split text into chunks to manageable sizes nd also store in qdrant
+    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 150) -> list[str]:  # Split text into overlapping chunks
         if not text:
             logger.warning("Empty text provided for chunking")
             return []
@@ -92,8 +94,9 @@ class RAGPipeline:
             start += chunk_size - overlap
         logger.debug(f"Created {len(chunks)} chunks")
         return chunks
-
-    def embed_chunks(self, chunks: list[str]) -> list[list[float]]:
+    
+    # generate embeddings for chunks
+    def embed_chunks(self, chunks: list[str]) -> list[list[float]]:  # Generate vector embeddings using sentence-transformers
         logger.info("Generating embeddings")
         if not chunks:
             logger.warning("No chunks provided for embedding")
@@ -107,17 +110,20 @@ class RAGPipeline:
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
             raise
-
+ 
+    # store embeddings and chunks in qdrant with retry mechanism
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
         retry=retry_if_exception_type(httpx.WriteTimeout),
         before_sleep=lambda retry_state: logger.warning(f"Retrying due to timeout: attempt {retry_state.attempt_number}")
     )
-    def upsert_with_retry(self, client, collection_name, points):
+    # upsert with retry
+    def upsert_with_retry(self, client, collection_name, points):  # Upload vectors with retry on timeout
         client.upsert(collection_name=collection_name, points=points)
 
-    def store_in_qdrant(self, embeddings: list[list[float]], chunks: list[str], source_map: list[str]):
+    # store data in qdrant
+    def store_in_qdrant(self, embeddings: list[list[float]], chunks: list[str], source_map: list[str]):  # Store embeddings and text in Qdrant vector DB
         logger.info(f"Storing {len(embeddings)} points in Qdrant collection {self.collection_name}")
         try:
             client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key, timeout=60.0)
@@ -147,14 +153,22 @@ class RAGPipeline:
         except Exception as e:
             logger.error(f"Failed to store data in Qdrant: {e}")
             raise
-
-    def search_similar_chunks(self, query: str, top_k: int = 3) -> list[dict]:
+    
+    # search for similar chunks in qdrant
+    def search_similar_chunks(self, query: str, top_k: int = 3) -> list[dict]:  # Find most similar document chunks using vector search
         logger.info(f"Searching for chunks similar to query: {query[:50]}...")
         try:
+            client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key, timeout=60.0)
+            
+            # Check if collection exists
+            if not client.collection_exists(collection_name=self.collection_name):
+                logger.warning(f"Collection {self.collection_name} does not exist. Returning empty results.")
+                return []
+            
             query_embedding = self.model.encode(
                 [query], show_progress_bar=False, normalize_embeddings=True
             ).tolist()[0]
-            client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key, timeout=60.0)
+            
             search_results = client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
@@ -172,42 +186,60 @@ class RAGPipeline:
             logger.info(f"Found {len(results)} similar chunks")
             return results
         except Exception as e:
-            logger.error(f"Search failed: {e}")
-            raise
+            logger.warning(f"Search failed: {e}. Returning empty results.")
+            return []
 
-    def generate_gemini_response(self, query: str, chunks: list[dict]) -> str:
-        logger.info("Generating formal response with Gemini API")
+    # generate formal response using Groq API
+    def generate_gemini_response(self, query: str, chunks: list[dict]) -> str:  # Generate AI response using Groq with document context
+        logger.info("Generating response with Groq API")
         try:
-            genai.configure(api_key=self.gemini_api_key)
-            model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-            context = "Relevant information from documents:\n"
-            for i, chunk in enumerate(chunks, 1):
-                context += f"Document {i} (Source: {chunk['source']}):\n{chunk['text']}\n\n"
-            full_prompt =  (
-                            f"Query: {query}\n\n"
-                            f"Using the information provided below, generate a clear, formal, and informative answer to the query.\n"
-                            f"If the answer can be found in the documents, respond based only on that.\n"
-                            f"remember u have to answer by your side any how ... provide general answer also if nothing is found on the documents\n\n"
-                            f"However, if the documents do **not** contain sufficient or relevant information to answer the query, "
-                            f"mention that explicitly and proceed to generate a well-informed response as if it were a standard web search (like Google or Gemini would do), "
-                            # f"remember u have to answer by your side any how ... provide general answer also if nothing comman\n\n"
-                            f"---\n"
-                            f"Document Context:\n{context}\n"
-                            f"---"
-                        )
-
+            client = Groq(api_key=self.groq_api_key)
             
-            response = model.generate_content(full_prompt)
-            logger.info("Generated Gemini response")
-            return response.text
-        except Exception as e:
-            logger.error(f"Failed to generate Gemini response: {e}")
-            raise
+            if chunks and len(chunks) > 0:
+                # If we have document context, use it
+                context = "Relevant information from documents:\n"
+                for i, chunk in enumerate(chunks, 1):
+                    context += f"Document {i} (Source: {chunk['source']}):\n{chunk['text']}\n\n"
+                user_message = (
+                    f"Query: {query}\n\n"
+                    f"Using the information provided below, generate a clear, formal, and informative answer to the query.\n"
+                    f"If the answer can be found in the documents, respond based only on that.\n"
+                    f"If the documents do not contain sufficient information, provide a general answer as well.\n\n"
+                    f"---\n"
+                    f"Document Context:\n{context}\n"
+                    f"---"
+                )
+            else:
+                # No documents available, act as general assistant
+                user_message = f"Answer the following question in a clear, informative, and helpful manner:\n\n{query}"
 
-    def process_pdfs(self):
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_message,
+                    }
+                ],
+                model="llama-3.3-70b-versatile",  # Updated model
+            )
+            
+            response_text = chat_completion.choices[0].message.content
+            logger.info("Generated Groq response")
+            if response_text:
+                return response_text
+            else:
+                logger.warning("Empty response from Groq API")
+                return "I apologize, but I couldn't generate a response at this time. Please try again."
+        except Exception as e:
+            logger.error(f"Failed to generate Groq response: {e}")
+            return f"Error generating response: {str(e)}"
+    
+    # process pdfs end-to-end 
+    # final method to call all other methods
+    def process_pdfs(self):  # Orchestrate full pipeline: extract, chunk, embed, and store
         pdf_data = self.extract_text_from_pdfs(self.books_folder)
         if not pdf_data:
-            raise ValueError("No PDF data extracted.")
+            raise ValueError("No PDF files found. Please upload PDF files first before processing.")
         all_chunks, source_map = [], []
         for book in tqdm(pdf_data, desc="Chunking texts"):
             chunks = self.chunk_text(book["text"])

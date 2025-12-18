@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from api.pipeline import RAGPipeline
 import os
@@ -16,7 +15,7 @@ router = APIRouter()
 pipeline = RAGPipeline()
 
 @router.post("/upload")
-async def upload_pdfs(files: List[UploadFile] = File(...)):
+async def upload_pdfs(files: List[UploadFile] = File(...)):  # Save uploaded PDF files to books folder
     try:
         os.makedirs("books", exist_ok=True)
         for file in files:
@@ -32,7 +31,7 @@ async def upload_pdfs(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to upload files: {str(e)}")
 
 @router.post("/process")
-async def process_pdfs():
+async def process_pdfs():  # Extract text, chunk, embed, and store in Qdrant
     try:
         result = pipeline.process_pdfs()
         logger.info("Processed PDFs successfully")
@@ -42,11 +41,11 @@ async def process_pdfs():
         raise HTTPException(status_code=500, detail=f"Failed to process PDFs: {str(e)}")
 
 @router.get("/query")
-async def query_similar_chunks(query: str):
+async def query_similar_chunks(query: str, top_k: int = 3):  # Search chunks and generate AI response
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
     try:
-        chunks = pipeline.search_similar_chunks(query)
+        chunks = pipeline.search_similar_chunks(query, top_k=top_k)
         gemini_response = pipeline.generate_gemini_response(query, chunks)
         logger.info("Query processed successfully")
         return {"chunks": chunks, "gemini_response": gemini_response}
@@ -55,7 +54,7 @@ async def query_similar_chunks(query: str):
         raise HTTPException(status_code=500, detail=f"Failed to process query: {str(e)}")
 
 @router.post("/clear-books")
-async def clear_books_folder():
+async def clear_books_folder():  # Delete all PDFs and reset Qdrant collection
     try:
         # Delete PDF files
         books_folder = "books"

@@ -1,8 +1,8 @@
 # ⚔️ RAGnar – PDF Query Pipeline with RAG
 
-**RAGnar** is a full-stack Retrieval-Augmented Generation (RAG) system designed to query PDF documents intelligently. It combines a sleek **Vite + React + TypeScript** frontend with a powerful **FastAPI** backend that uses **Qdrant Cloud** for vector storage and **Gemini**  for language responses.
+**RAGnar** is a full-stack Retrieval-Augmented Generation (RAG) system designed to query PDF documents intelligently. It combines a sleek **Vite + React + TypeScript** frontend with a powerful **FastAPI** backend that uses **Qdrant Cloud** for vector storage and **Groq (Llama 3.3)** for language responses.
 
-On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs from the `books/` directory and wiping the associated Qdrant `love_stories` collection.
+On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs from the `books/` directory and wiping the associated Qdrant `rag_collection` collection.
 
 ---
 
@@ -21,8 +21,9 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 
 - 📄 **PDF Upload**: Upload one or more PDF files via the frontend UI.
 - 🧠 **RAG Processing**: Text is extracted and converted to embeddings using `thenlper/gte-base`.
-- 📦 **Vector Storage**: Embeddings are stored in Qdrant (`love_stories` collection).
-- 💬 **Smart Querying**: Ask questions and get Gemini-powered answers with cited chunks.
+- 📦 **Vector Storage**: Embeddings are stored in Qdrant (`rag_collection` collection).
+- 💬 **Smart Querying**: Ask questions and get Groq-powered (Llama 3.3) answers with cited chunks.
+- 🎚️ **Adjustable Context**: Control the number of document chunks (1-10) retrieved for context.
 - 🔁 **Auto Reset**: Every page reload clears previous uploads and data for a clean session.
 
 ---
@@ -33,7 +34,7 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 - **Backend**: FastAPI (Python 3.8+)
 - **Vector DB**: Qdrant Cloud
 - **Embeddings**: `thenlper/gte-base`
-- **LLM Responses**: Gemini 
+- **LLM Responses**: Groq (Llama 3.3 70B Versatile)
 
 ---
 
@@ -42,27 +43,33 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 ### 🔧 Backend Setup
 
 1. **Navigate to the backend directory:**
+
    ```bash
    cd backend
    ```
 
 2. **Create and activate a virtual environment:**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # or venv\Scripts\activate on Windows
    ```
 
 3. **Install dependencies:**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Add environment variables to `.env`:**
+
    ```
-   DB_API_URL
-   QDRANT_API_KEY
-   GROQ_API_KEY
+   DB_API_URL=your_qdrant_url
+   QDRANT_API_KEY=your_qdrant_api_key
+   GROQ_API_KEY=your_groq_api_key
    ```
+
+   Get your free Groq API key from: https://console.groq.com/
 
 5. **Run the backend server:**
    ```bash
@@ -74,11 +81,13 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 ### 💻 Frontend Setup
 
 1. **Navigate to the frontend directory:**
+
    ```bash
    cd frontend
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
@@ -93,8 +102,9 @@ On each page refresh, RAGnar ensures a fresh state by clearing all uploaded PDFs
 ## 📌 Notes
 
 - All uploaded PDFs are stored temporarily in the `books/` folder.
-- On each page reload, `books/` and the Qdrant `love_stories` collection are cleared to maintain a clean state.
-- Make sure your Qdrant collection name is **`love_stories`** in your `.env` or code.
+- On each page reload, `books/` and the Qdrant `rag_collection` collection are cleared to maintain a clean state.
+- Make sure your Qdrant collection name is **`rag_collection`** in your code.
+- Groq provides free API access with generous rate limits - no credit card required!
 
 ---
 
@@ -104,10 +114,7 @@ Forged in code and guided by fate,
 **RAGnar** draws its name from the fearless Viking, **Ragnar Lothbrok**.  
 Crafted by Sourabh, for those who seek knowledge like warriors seek glory.
 
-
 ---
-
-
 
 ## 📷 Screenshots / Demo
 
@@ -115,7 +122,4 @@ Crafted by Sourabh, for those who seek knowledge like warriors seek glory.
 
 ![image](https://github.com/user-attachments/assets/d33b467f-4679-402f-ab8e-658e39653310)
 
-
 ---
-
-

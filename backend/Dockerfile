@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the port Railway will use
-EXPOSE 8000
+EXPOSE 8080
 
 # Set environment variable for Python
 ENV PYTHONUNBUFFERED=1

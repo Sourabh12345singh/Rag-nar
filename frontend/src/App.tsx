@@ -1,7 +1,6 @@
-
-import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, Send, FileText, Sparkles, Loader2 } from 'lucide-react';
-import { uploadPDFs, processPDFs, queryDocuments, clearBooks } from './api';
+import { useState, useCallback, useEffect } from "react";
+import { Upload, Send, FileText, Sparkles, Loader2 } from "lucide-react";
+import { uploadPDFs, processPDFs, queryDocuments, clearBooks } from "./api";
 
 interface Chunk {
   source: string;
@@ -11,11 +10,12 @@ interface Chunk {
 
 function App() {
   const [files, setFiles] = useState<File[]>([]);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chunks, setChunks] = useState<Chunk[]>([]);
-  const [response, setResponse] = useState('');
-  const [status, setStatus] = useState('');
+  const [response, setResponse] = useState("");
+  const [status, setStatus] = useState("");
+  const [topK, setTopK] = useState(3); // Number of chunks to retrieve
 
   // Clear books folder on page load/refresh
   useEffect(() => {
@@ -24,22 +24,25 @@ function App() {
         const result = await clearBooks();
         setStatus(result.message);
       } catch (error) {
-        setStatus('Failed to clear books folder');
+        setStatus("Failed to clear books folder");
         console.error(error);
       }
     };
     clearFolder();
   }, []); // Empty dependency array ensures this runs once on mount
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
-  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files) {
+        setFiles(Array.from(e.target.files));
+      }
+    },
+    []
+  );
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      setStatus('Please select at least one PDF file.');
+      setStatus("Please select at least one PDF file.");
       return;
     }
     setIsLoading(true);
@@ -47,7 +50,7 @@ function App() {
       const result = await uploadPDFs(files);
       setStatus(`Uploaded ${result.files_uploaded} files successfully.`);
     } catch (error: any) {
-      setStatus(error.message || 'Error uploading files.');
+      setStatus(error.message || "Error uploading files.");
     } finally {
       setIsLoading(false);
     }
@@ -57,9 +60,11 @@ function App() {
     setIsLoading(true);
     try {
       const result = await processPDFs();
-      setStatus(`Processed ${result.books} books with ${result.chunks} chunks.`);
+      setStatus(
+        `Processed ${result.books} books with ${result.chunks} chunks.`
+      );
     } catch (error: any) {
-      setStatus(error.message || 'Error processing PDFs.');
+      setStatus(error.message || "Error processing PDFs.");
     } finally {
       setIsLoading(false);
     }
@@ -68,19 +73,19 @@ function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt) {
-      setStatus('Please enter a query.');
+      setStatus("Please enter a query.");
       return;
     }
     setIsLoading(true);
     try {
-      const { chunks, gemini_response } = await queryDocuments(prompt);
+      const { chunks, gemini_response } = await queryDocuments(prompt, topK);
       setChunks(chunks);
       setResponse(gemini_response);
-      setStatus('');
+      setStatus("");
     } catch (error: any) {
-      setStatus(error.message || 'Error processing query.');
+      setStatus(error.message || "Error processing query.");
       setChunks([]);
-      setResponse('');
+      setResponse("");
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +136,31 @@ function App() {
           {/* Query Section */}
           <div className="mb-8">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Top K Slider */}
+              <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
+                <label className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-300">
+                    Number of Context Chunks: {topK}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    More chunks = more context
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={topK}
+                  onChange={(e) => setTopK(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>1</span>
+                  <span>5</span>
+                  <span>10</span>
+                </div>
+              </div>
+
               <div className="relative group">
                 <textarea
                   value={prompt}
@@ -176,13 +206,19 @@ function App() {
                 className="cursor-pointer flex flex-col items-center"
               >
                 <Upload className="w-12 h-12 text-purple-400 mb-4" />
-                <span className="text-lg font-medium mb-2">Add PDF context (optional)</span>
-                <span className="text-sm text-gray-400">Drop files here or click to browse</span>
+                <span className="text-lg font-medium mb-2">
+                  Add PDF context (optional)
+                </span>
+                <span className="text-sm text-gray-400">
+                  Drop files here or click to browse
+                </span>
               </label>
             </div>
             {files.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-300 mb-2">Context Files:</h3>
+                <h3 className="text-sm font-medium text-gray-300 mb-2">
+                  Context Files:
+                </h3>
                 <div className="space-y-2">
                   {files.map((file, index) => (
                     <div
@@ -238,7 +274,8 @@ function App() {
                           <strong>Score:</strong> {chunk.score.toFixed(4)}
                         </p>
                         <p>
-                          <strong>Text:</strong> {chunk.text.substring(0, 200)}...
+                          <strong>Text:</strong> {chunk.text.substring(0, 200)}
+                          ...
                         </p>
                       </div>
                     ))}

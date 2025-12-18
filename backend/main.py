@@ -1,9 +1,4 @@
-
-
-
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints import router
 import os
@@ -26,4 +21,4 @@ app.include_router(router)
 if __name__ == "__main__":
     import uvicorn
     os.makedirs("books", exist_ok=True)  # Ensure books folder exists for PDF uploads
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
